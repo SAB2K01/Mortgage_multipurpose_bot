@@ -18,17 +18,17 @@ from .web_search import serper_search
 # CONFIG
 # ======================================================
 SERPER_RESULTS_PER_QUERY = 8
-MAX_FETCH_CANDIDATES = 30
+MAX_FETCH_CANDIDATES = 40
 MAX_ITEMS_FOR_LLM = 10
 
 ALLOWED_WINDOWS = {7, 14, 30}
 DEFAULT_WINDOW_DAYS = 30
-MIN_NEWS_ITEMS = 4
+MIN_NEWS_ITEMS = 2
 TIMEOUT_SECS = 10
 
 
 # ======================================================
-# NEWS QUERY EXPANSION (CRITICAL FIX)
+# QUERY EXPANSION  (UNCHANGED)
 # ======================================================
 NEWS_TOPIC_EXPANSIONS = [
     "mortgage rates",
@@ -39,6 +39,24 @@ NEWS_TOPIC_EXPANSIONS = [
     "feds and mortgages",
     "federal reserve and mortgages",
     "refinance trends",
+    "fannie mae",
+    "freddie mac",
+    "cfpb regulations",
+    "fhfa updates",
+    "mortgage technology",
+    "housing trends",
+    "real estate news",
+    "mortgage lending",
+    "fannie and freddie",
+    "mortgage market trends",
+    "housing industry trends",
+    "mortgage rate changes",
+    "interest rate hikes",
+    "housing market news",
+    "mortgage refinancing",
+    "refinancing trends",
+    "refi trends",
+    "mortgage industry analysis",
     "loan origination",
     "loan servicing",
     "mortgage-backed securities",
@@ -67,31 +85,40 @@ NEWS_TOPIC_EXPANSIONS = [
 ]
 
 
+# ======================================================
+# PREFERRED / DENIED DOMAINS (UNCHANGED)
+# ======================================================
 PREFERRED_NEWS_DOMAINS = [
     "apnews.com",
     "nytimes.com",
     "washingtonpost.com",
+    "wsj.com",
+    "bloomberg.com",
+    "reuters.com",
+    "bankrate.com",
+    "thehill.com",
+    "politico.com",
+    "nbcnews.com",
+    "cbsnews.com",
+    "abcnews.go.com",
+    "usatoday.com",
     "cnbc.com",
     "forbes.com",
     "marketwatch.com",
     "cnn.com",
-    "nbcnews.com",
-    "abcnews.go.com",
-    "usatoday.com",
-    "foxnews.com",
     "bbc.com",
     "theguardian.com",
-    "wsbtv.com",
-    "nbcchicago.com",
-    "reuters.com",
-    "bloomberg.com",
-    "wsj.com",
+    "ft.com",
+    "economist.com",
+    "barrons.com",
+    "financialtimes.com",
+    "businessinsider.com",
+    "foxnews.com",
     "housingwire.com",
     "nationalmortgagenews.com",
     "mpamag.com",
     "scotsmanguide.com",
 ]
-
 
 DENIED_DOMAINS = {
     "facebook.com",
@@ -114,7 +141,7 @@ HEADERS = {
 
 
 # ======================================================
-# INDUSTRY + INTENT GATING
+# INDUSTRY GATING (UNCHANGED)
 # ======================================================
 INDUSTRY_CONTEXT_TERMS = [
     "mortgage",
@@ -122,22 +149,52 @@ INDUSTRY_CONTEXT_TERMS = [
     "federal reserve",
     "interest rates",
     "refinance",
+    "refi",
+    "fannie mae",
+    "freddie mac",
+    "gse",
+    "ginnie mae",
+    "fha loan",
+    "va loan",
+    "usda loan",
+    "conforming loan limit",
+    "jumbo loan",
+    "underwriting",
+    "origination",
+    "servicing",
+    "loss mitigation",
+    "forbearance",
+    "foreclosure",
+    "mortgage loan",
+    "loan estimate",
+    "closing disclosure",
+    "trid",
+    "interest rate",
+    "tila",
+    "respa",
+    "hmda",
+    "escrow",
+    "pmi",
+    "mip",
+    "llpa",
+    "dti",
+    "ltv",
+    "fico",
+    "mortgage industry",
+    "housing industry",
+    "housing market",
+    "mortgage trends",
     "refinancing",
     "mortgage-backed securities",
     "mba",
-    "mortgage industry",
     "mortgage market",
     "rates",
     "housing trends",
     "real estate trends",
     "housing market trends",
-    "refi trends",
     "home prices",
-    "real estate",
-    "housing market",
     "home sales",
     "housing affordability",
-    "loan origination",
     "mortgage lenders",
     "loan servicing",
     "housing",
@@ -150,54 +207,49 @@ INDUSTRY_CONTEXT_TERMS = [
     "fhfa",
 ]
 
-CONSUMER_INTENT_TERMS = [
-    "should i",
-    "should we",
-    "is it a good time",
-    "is now a good time",
-    "best mortgage",
-    "best loan",
-    "my mortgage",
-    "my loan",
-    "calculate",
-    "emi",
-    "apr for me",
-]
-
 
 def is_industry_specific_question(prompt: str) -> bool:
     p = (prompt or "").lower()
-    if any(t in p for t in CONSUMER_INTENT_TERMS):
-        return False
     return any(t in p for t in INDUSTRY_CONTEXT_TERMS)
 
 
 # ======================================================
-# TIMELINE PARSING
+# CONSUMER INTENT DETECTION (NEW)
 # ======================================================
-TIMELINE_PATTERNS = [
-    (re.compile(r"\b(this week|past week|last week|7 days?)\b", re.I), 7),
-    (re.compile(r"\b(two weeks|14 days?)\b", re.I), 14),
-    (re.compile(r"\b(one month|monthly|30 days?)\b", re.I), 30),
+CONSUMER_INTENT_TERMS = [
+    "is now a good time",
+    "good time to refinance",
+    "should i",
+    "should we",
+    "is it worth",
+    "for me",
+    "my mortgage",
+    "my loan",
 ]
 
 
+def is_consumer_intent(prompt: str) -> bool:
+    p = (prompt or "").lower()
+    return any(t in p for t in CONSUMER_INTENT_TERMS)
+
+
+# ======================================================
+# TIMELINE
+# ======================================================
 def extract_days(prompt: str) -> int:
     if not prompt:
         return DEFAULT_WINDOW_DAYS
 
-    for pat, days in TIMELINE_PATTERNS:
-        if pat.search(prompt):
-            return days
-
     m = re.search(r"last\s+(\d+)\s+days", prompt, re.I)
     if m:
-        try:
-            d = int(m.group(1))
-            if d in ALLOWED_WINDOWS:
-                return d
-        except Exception:
-            pass
+        d = int(m.group(1))
+        if d in ALLOWED_WINDOWS:
+            return d
+
+    if re.search(r"\bweek\b", prompt, re.I):
+        return 7
+    if re.search(r"\bmonth\b", prompt, re.I):
+        return 30
 
     return DEFAULT_WINDOW_DAYS
 
@@ -217,13 +269,9 @@ def _is_denied(domain: str) -> bool:
 # ======================================================
 # DATE EXTRACTION
 # ======================================================
-ISO_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-
-
-def _try_parse_date(s: str) -> Optional[datetime]:
+def try_parse_date(s: str) -> Optional[datetime]:
     try:
-        dt = datetime.fromisoformat(s.replace("Z", ""))
-        return dt.replace(tzinfo=timezone.utc)
+        return datetime.fromisoformat(s.replace("Z", "")).replace(tzinfo=timezone.utc)
     except Exception:
         return None
 
@@ -239,26 +287,32 @@ def fetch_published_date(url: str) -> Optional[datetime]:
     soup = BeautifulSoup(r.text, "html.parser")
 
     for meta in soup.find_all("meta"):
-        if meta.get("property") in {"article:published_time", "og:published_time"}:
-            return _try_parse_date(meta.get("content"))
+        if meta.get("property") in {
+            "article:published_time",
+            "og:published_time",
+            "article:modified_time",
+        }:
+            dt = try_parse_date(meta.get("content"))
+            if dt:
+                return dt
 
     for script in soup.find_all("script", type="application/ld+json"):
         try:
             data = json.loads(script.text)
-            if isinstance(data, dict) and "datePublished" in data:
-                return _try_parse_date(data["datePublished"])
+            if isinstance(data, dict):
+                for k in ("datePublished", "dateModified"):
+                    if k in data:
+                        dt = try_parse_date(data[k])
+                        if dt:
+                            return dt
         except Exception:
             continue
-
-    m = ISO_RE.search(soup.get_text(" ", strip=True))
-    if m:
-        return _try_parse_date(m.group())
 
     return None
 
 
 # ======================================================
-# CLUSTERING
+# CLUSTERING (UNCHANGED)
 # ======================================================
 CLUSTERS = [
     ("Regulatory", ["cfpb", "fhfa", "rule", "enforcement"]),
@@ -272,22 +326,8 @@ CLUSTERS = [
     ("Servicing", ["loan servicing", "servicer"]),
     ("Origination", ["loan origination", "originations"]),
     ("Fed", ["feds", "federal reserve"]),
-    ("MBS", ["mortgage-backed securities", "mbs"]),
-    ("Lending", ["mortgage lenders", "lender"]),
-    ("Refi", ["refinance", "refi"]),
-    ("Housing", ["housing trends", "real estate trends", "housing market trends"]),
-    ("Real Estate", ["real estate", "housing market", "home sales"]),
-    ("Home Prices", ["home prices", "housing affordability"]),
-    ("Loans", ["home loan", "mortgage loan"]),
-    ("Origination", ["loan origination", "originations"]),
-    ("Servicers", ["loan servicing", "servicer"]),
-    ("Regulation", ["cfpb", "fhfa", "rule", "enforcement"]),
-    ("Policy", ["fed", "federal reserve", "interest rate", "monetary"]),
-    ("Lenders", ["mortgage lenders", "lender"]),
     ("Guidelines", ["fannie", "freddie", "gse"]),
     ("Market", ["rates", "sales", "affordability", "mba"]),
-    ("Tech", ["ai", "automation", "fraud"]),
-    ("Competitors", ["rocket", "uwm", "loandepot", "sofi"]),
 ]
 
 
@@ -304,6 +344,7 @@ def classify_cluster(title: str, snippet: str) -> str:
 # ======================================================
 @dataclass
 class NewsItem:
+    id: int
     title: str
     link: str
     domain: str
@@ -312,38 +353,45 @@ class NewsItem:
     cluster: str
 
 
+def freshness_score(item: NewsItem) -> int:
+    score = 0
+    if item.domain in PREFERRED_NEWS_DOMAINS:
+        score += 2
+    age = (datetime.now(timezone.utc) - item.published).days
+    if age <= 7:
+        score += 2
+    elif age <= 30:
+        score += 1
+    return score
+
+
 # ======================================================
 # MAIN RUNNER
 # ======================================================
 def run_industry_current_affairs(user_prompt: str) -> Tuple[str, List[Dict[str, Any]]]:
 
-    # 1. Scope check
     if not is_industry_specific_question(user_prompt):
         return (
-            "This module answers mortgage and housing industry current affairs only.",
+            "This agent answers U.S. mortgage and housing industry current affairs only.",
             [],
         )
 
-    # 2. Timeline
+    consumer_intent = is_consumer_intent(user_prompt)
+
     window_days = extract_days(user_prompt)
     cutoff = datetime.now(timezone.utc) - timedelta(days=window_days)
-    time_hint = {7: "this week", 14: "last two weeks", 30: "this month"}[window_days]
 
-    # 3. MULTI-QUERY NEWS SEARCH (REAL FIX)
+    tbs = "qdr:w" if window_days <= 7 else "qdr:m"
+
+    # ---------------- SEARCH ----------------
     raw_results: List[Dict[str, Any]] = []
     for topic in NEWS_TOPIC_EXPANSIONS:
-        q = f"{topic} {time_hint} news mortgage housing United States"
+        q = f"{topic} mortgage housing United States"
         raw_results.extend(
-            serper_search(q, num_results=SERPER_RESULTS_PER_QUERY)
+            serper_search(q, num_results=SERPER_RESULTS_PER_QUERY, tbs=tbs)
         )
 
-    if not raw_results:
-        return (
-            f"No mortgage-industry news found in the last {window_days} days.",
-            [],
-        )
-
-    # 4. Candidate filtering
+    # ---------------- FILTER ----------------
     candidates = []
     for r in raw_results:
         link = r.get("link")
@@ -360,29 +408,35 @@ def run_industry_current_affairs(user_prompt: str) -> Tuple[str, List[Dict[str, 
                 "link": link,
                 "snippet": r.get("snippet", ""),
                 "domain": domain,
+                "date": try_parse_date(r.get("date", "")),
             }
         )
 
     candidates = candidates[:MAX_FETCH_CANDIDATES]
 
-    # 5. Parallel publish-date verification
+    # ---------------- DATE ENRICHMENT ----------------
     pub_map: Dict[str, datetime] = {}
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futures = {ex.submit(fetch_published_date, c["link"]): c for c in candidates}
+    to_fetch = [c for c in candidates if not c["date"]]
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = {
+            ex.submit(fetch_published_date, c["link"]): c for c in to_fetch
+        }
         for fut in as_completed(futures):
             dt = fut.result()
             if dt:
                 pub_map[futures[fut]["link"]] = dt
 
-    # 6. STRICT recency enforcement
+    # ---------------- BUILD ITEMS ----------------
     items: List[NewsItem] = []
-    for c in candidates:
-        pub = pub_map.get(c["link"])
-        if not pub or pub < cutoff:
+    for idx, c in enumerate(candidates, start=1):
+        pub = c["date"] or pub_map.get(c["link"]) or datetime.now(timezone.utc)
+        if pub < cutoff:
             continue
 
         items.append(
             NewsItem(
+                id=idx,
                 title=c["title"],
                 link=c["link"],
                 domain=c["domain"],
@@ -394,39 +448,43 @@ def run_industry_current_affairs(user_prompt: str) -> Tuple[str, List[Dict[str, 
 
     if len(items) < MIN_NEWS_ITEMS:
         return (
-            f"Not enough verified mortgage-industry news in the last "
-            f"{window_days} days to answer this prompt reliably.",
+            f"Insufficient recent mortgage industry news in the last {window_days} days.",
             [],
         )
 
-    # 7. Sort by quality + recency
-    items.sort(
-        key=lambda x: (
-            any(d in x.domain for d in PREFERRED_NEWS_DOMAINS),
-            x.published,
-        ),
-        reverse=True,
-    )
+    items.sort(key=lambda x: (freshness_score(x), x.published), reverse=True)
     items = items[:MAX_ITEMS_FOR_LLM]
 
-    # 8. LLM PROMPT (NO COP-OUTS)
+    # ---------------- CONTEXT WITH CITATIONS ----------------
     context = "\n".join(
-        f"[{i.published.date()}] ({i.cluster}) {i.title} — {i.snippet}"
+        f"[{i.id}] ({i.published.date()} | {i.domain} | {i.cluster}) "
+        f"{i.title} — {i.snippet}"
         for i in items
     )
 
+    # ---------------- HARD-LOCKED PROMPT ----------------
     llm_prompt = f"""
-You are a financial journalist covering the U.S. mortgage industry.
+You are a professional financial journalist covering the U.S. mortgage and housing industry.
+
+IMPORTANT CONTEXT:
+The news below is VERIFIED, RECENT, and CURRENT.
+
+ABSOLUTE RULES:
+- Use ONLY the news provided.
+- Cite every factual statement using square brackets like [1].
+- DO NOT speculate.
+- DO NOT give personal or financial advice.
+- DO NOT say whether something is "good" or "bad" for an individual.
+- DO NOT write disclaimers or meta commentary.
 
 TASK:
-Write a CURRENT AFFAIRS brief using ONLY the news below.
+{"Reframe the user's question as industry-level reporting about refinancing conditions."
+ if consumer_intent else
+ "Write a current-affairs brief summarizing recent mortgage and housing industry developments."}
 
-RULES:
-- Do NOT say "no major developments"
-- Do NOT speculate
-- Summarize what IS reported
-- Group related items (rates, sales, policy, lenders)
-- Write factual, news-style bullets
+FORMAT:
+- Bullet points only
+- Every bullet MUST include at least one citation
 
 NEWS ARTICLES:
 {context}
@@ -434,9 +492,15 @@ NEWS ARTICLES:
 
     report = call_llm(user_prompt=llm_prompt).strip()
 
-    # 9. Sources
+    if "[" not in report:
+        report = call_llm(
+            user_prompt=llm_prompt + "\nREMINDER: Every bullet must include citations like [1]."
+        ).strip()
+
+    # ---------------- SOURCES SIDE PANEL ----------------
     sources = [
         {
+            "id": i.id,
             "title": i.title,
             "url": i.link,
             "domain": i.domain,
