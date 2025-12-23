@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import re
 import requests
 
@@ -21,11 +21,19 @@ _MORTGAGE_QUERY_RX = re.compile(
     r")\b"
 )
 
+
 def _is_mortgage_query(query: str) -> bool:
     return bool(_MORTGAGE_QUERY_RX.search(query or ""))
 
 
-def serper_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+# ======================================================
+# SERPER SEARCH (FIXED: TIME FILTER SUPPORT)
+# ======================================================
+def serper_search(
+    query: str,
+    num_results: int = 5,
+    tbs: Optional[str] = None,   # ✅ NEW
+) -> List[Dict[str, Any]]:
     api_key = (settings.SERPER_API_KEY or "").strip()
     if not api_key:
         raise RuntimeError("Missing SERPER_API_KEY in .env")
@@ -35,6 +43,7 @@ def serper_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
         "X-API-KEY": api_key,
         "Content-Type": "application/json",
     }
+
     payload: Dict[str, Any] = {
         "q": query,
         "num": num_results,
@@ -42,12 +51,17 @@ def serper_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
         "hl": settings.SERPER_HL,
     }
 
+    # ✅ TIME FILTER (CRITICAL)
+    if tbs:
+        payload["tbs"] = tbs
+
     r = requests.post(url, headers=headers, json=payload, timeout=20)
     r.raise_for_status()
     data = r.json()
 
     out: List[Dict[str, Any]] = []
     organic = data.get("organic") or []
+
     for item in organic[:num_results]:
         out.append(
             {
@@ -55,14 +69,24 @@ def serper_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
                 "link": item.get("link"),
                 "snippet": item.get("snippet"),
                 "position": item.get("position"),
+                "date": item.get("date"),   # may exist
                 "source": "serper",
             }
         )
+
     return out
 
 
-def web_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
+# ======================================================
+# MORTGAGE-GATED SEARCH
+# ======================================================
+def web_search(
+    query: str,
+    num_results: int = 5,
+    tbs: Optional[str] = None,   # ✅ pass-through
+) -> List[Dict[str, Any]]:
     # Mortgage-industry-only: don't fetch anything for non-mortgage prompts.
     if not _is_mortgage_query(query):
         return []
-    return serper_search(query, num_results=num_results)
+
+    return serper_search(query, num_results=num_results, tbs=tbs)
