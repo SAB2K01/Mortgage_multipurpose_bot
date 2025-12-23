@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic
+pydantic-settings
+sqlalchemy
+passlib[bcrypt]
+pinecone [grpc]
+sentence-transformers
+google-generativeai
+requests
+google-cloud-aiplatform
