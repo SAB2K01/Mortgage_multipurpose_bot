@@ -17,13 +17,13 @@ from .web_search import serper_search
 # ======================================================
 # CONFIG
 # ======================================================
-SERPER_RESULTS_PER_QUERY = 8
+SERPER_RESULTS_PER_QUERY = 20
 MAX_FETCH_CANDIDATES = 40
-MAX_ITEMS_FOR_LLM = 10
+MAX_ITEMS_FOR_LLM = 30
 
 ALLOWED_WINDOWS = {7, 14, 30}
 DEFAULT_WINDOW_DAYS = 30
-MIN_NEWS_ITEMS = 2
+MIN_NEWS_ITEMS = 10
 TIMEOUT_SECS = 10
 
 
